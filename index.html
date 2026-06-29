@@ -478,7 +478,7 @@
   <nav class="sidebar">
     <div class="logo">
       <div class="logo-title">Optical Sim</div>
-      <div class="logo-sub">WAN · v3</div>
+      <div class="logo-sub">Hyperscale WAN · v3</div>
     </div>
 
     <div class="nav-section">Overview</div>
@@ -1096,6 +1096,12 @@ function showPage(id) {
   if (id === 'topology') {
     requestAnimationFrame(() => initTopoCanvas());
   }
+  if (id === 'allocate') {
+    requestAnimationFrame(() => updatePreview());
+  }
+  // reset SRLG selections when switching pages
+  if (id === 'fault') selectedSrlg = null;
+  if (id === 'dual')  { dual1 = null; dual2 = null; }
 }
 
 function renderPage(id) {
@@ -1269,6 +1275,32 @@ function renderSpectrum() {
   </div>`;
 }
 
+function updatePreview() {
+  const el = document.getElementById('svc-path');
+  if (!el) return;
+  const pathName = el.value;
+  const gbps = parseInt(document.getElementById('svc-gbps').value) || 0;
+  const pathDef = SRLG_PATHS.find(p => p.name === pathName);
+  if (!pathDef) return;
+  const mod = selectModulation(pathDef.km);
+  if (!mod) return;
+  const channels = gbps > 0 ? Math.ceil(gbps / mod.rate_gbps) : '—';
+  const cap = gbps > 0 ? channels * mod.rate_gbps : '—';
+  const usedC = getUsed(pathName, 'C').length;
+  const preview = document.getElementById('alloc-preview');
+  if (!preview) return;
+  preview.innerHTML =
+    '<table class="tbl"><tbody>' +
+    '<tr><td style="color:var(--muted)">Distance</td><td>' + pathDef.km + ' km</td></tr>' +
+    '<tr><td style="color:var(--muted)">Modulation</td><td>' + mod.name + '</td></tr>' +
+    '<tr><td style="color:var(--muted)">Rate per channel</td><td>' + mod.rate_gbps + ' G/ch</td></tr>' +
+    '<tr><td style="color:var(--muted)">OSNR required</td><td>>= ' + mod.osnr_db + ' dB</td></tr>' +
+    '<tr><td style="color:var(--muted)">Channels needed</td><td>' + channels + '</td></tr>' +
+    '<tr><td style="color:var(--muted)">Total capacity</td><td>' + (cap !== '—' ? cap.toLocaleString() + ' Gbps' : '—') + '</td></tr>' +
+    '<tr><td style="color:var(--muted)">C-Band used</td><td>' + usedC + '/97 slots</td></tr>' +
+    '</tbody></table>';
+}
+
 // ── ALLOCATE ─────────────────────────────────────────────────
 function renderAllocate() {
   const pathOpts = SRLG_PATHS.map(p => {
@@ -1291,13 +1323,13 @@ function renderAllocate() {
       <div class="form-row">
         <div class="form-group" style="flex:2">
           <label>Path</label>
-          <select id="svc-path">${pathOpts}</select>
+          <select id="svc-path" onchange="updatePreview()">${pathOpts}</select>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label>Demand (Gbps)</label>
-          <input id="svc-gbps" type="number" placeholder="e.g. 2400" min="100" max="50000" />
+          <input id="svc-gbps" type="number" placeholder="e.g. 2400" min="100" max="50000" oninput="updatePreview()" />
         </div>
       </div>
       <div style="display:flex;gap:8px;margin-top:4px">
@@ -1317,35 +1349,7 @@ function renderAllocate() {
   </div>
 
   <div class="panel" id="alloc-result" style="display:none"></div>
-  <div class="panel" id="walkthrough-panel" style="display:none"></div>
-
-  <script>
-    document.getElementById('svc-path').addEventListener('change', updatePreview);
-    document.getElementById('svc-gbps').addEventListener('input', updatePreview);
-    updatePreview();
-
-    function updatePreview() {
-      const pathName = document.getElementById('svc-path').value;
-      const gbps = parseInt(document.getElementById('svc-gbps').value) || 0;
-      const pathDef = ${JSON.stringify(SRLG_PATHS)}.find(p => p.name === pathName);
-      if (!pathDef) return;
-      const mod = ${JSON.stringify(MODULATION_TABLE)}.find(m => pathDef.km <= m.max_km && m.rate_gbps === Math.max(...${JSON.stringify(MODULATION_TABLE)}.filter(x => pathDef.km <= x.max_km).map(x => x.rate_gbps)));
-      if (!mod) return;
-      const channels = gbps > 0 ? Math.ceil(gbps / mod.rate_gbps) : '—';
-      const cap = gbps > 0 ? channels * mod.rate_gbps : '—';
-      const usedC = ${JSON.stringify(Object.fromEntries(SRLG_PATHS.map(p => [p.name, getUsed(p.name,'C').length])))}[pathName] || 0;
-      document.getElementById('alloc-preview').innerHTML =
-        '<table class="tbl"><tbody>' +
-        '<tr><td style="color:var(--muted)">Distance</td><td>' + pathDef.km + ' km</td></tr>' +
-        '<tr><td style="color:var(--muted)">Modulation</td><td>' + mod.name + '</td></tr>' +
-        '<tr><td style="color:var(--muted)">Rate per channel</td><td>' + mod.rate_gbps + ' G/ch</td></tr>' +
-        '<tr><td style="color:var(--muted)">OSNR required</td><td>>= ' + mod.osnr_db + ' dB</td></tr>' +
-        '<tr><td style="color:var(--muted)">Channels needed</td><td>' + channels + '</td></tr>' +
-        '<tr><td style="color:var(--muted)">Total capacity</td><td>' + (cap !== '—' ? cap.toLocaleString() + ' Gbps' : '—') + '</td></tr>' +
-        '<tr><td style="color:var(--muted)">C-Band used</td><td>' + usedC + '/97 slots</td></tr>' +
-        '</tbody></table>';
-    }
-  <\/script>`;
+  <div class="panel" id="walkthrough-panel" style="display:none"></div>`;
 }
 
 function doAllocate() {
@@ -1486,6 +1490,20 @@ function commitWalkthrough(name, path, gbps) {
 }
 
 // ── FAULT ─────────────────────────────────────────────────────
+let selectedSrlg = null;
+
+function selectSrlg(s) {
+  document.querySelectorAll('.srlg-chip').forEach(c => c.classList.remove('selected'));
+  selectedSrlg = s;
+  const el = document.getElementById('chip-' + s);
+  if (el) el.classList.add('selected');
+}
+
+function runFault() {
+  if (!selectedSrlg) { notify('Select an SRLG first', 'err'); return; }
+  window._runFault(selectedSrlg);
+}
+
 function renderFault() {
   const srlgs = getAllSrlgs();
   const chips = srlgs.map(s =>
@@ -1508,19 +1526,7 @@ function renderFault() {
     <div class="srlg-check">${chips}</div>
     <button class="btn btn-danger" style="margin-top:12px" onclick="runFault()">Cut selected SRLG</button>
   </div>
-  <div id="fault-result"></div>
-  <script>
-    let selectedSrlg = null;
-    function selectSrlg(s) {
-      document.querySelectorAll('.srlg-chip').forEach(c => c.classList.remove('selected'));
-      selectedSrlg = s;
-      document.getElementById('chip-' + s).classList.add('selected');
-    }
-    function runFault() {
-      if (!selectedSrlg) { alert('Select an SRLG first'); return; }
-      window._runFault(selectedSrlg);
-    }
-  <\/script>`;
+  <div id="fault-result"></div>`;
 }
 
 window._runFault = function(srlg) {
@@ -1615,6 +1621,28 @@ window._runFault = function(srlg) {
 };
 
 // ── DUAL ─────────────────────────────────────────────────────
+let dual1 = null, dual2 = null;
+
+function selectDual(n, s) {
+  if (n === 1) {
+    document.querySelectorAll('[id^="chip1-"]').forEach(c => c.classList.remove('selected'));
+    dual1 = s;
+    const el = document.getElementById('chip1-' + s);
+    if (el) el.classList.add('selected');
+  } else {
+    document.querySelectorAll('[id^="chip2-"]').forEach(c => c.classList.remove('selected'));
+    dual2 = s;
+    const el = document.getElementById('chip2-' + s);
+    if (el) el.classList.add('selected');
+  }
+}
+
+function runDual() {
+  if (!dual1 || !dual2) { notify('Select both SRLGs', 'err'); return; }
+  if (dual1 === dual2)  { notify('Select two different SRLGs', 'err'); return; }
+  window._runDual(dual1, dual2);
+}
+
 function renderDual() {
   const srlgs = getAllSrlgs();
   const chips1 = srlgs.map(s => `<div class="srlg-chip" id="chip1-${s}" onclick="selectDual(1,'${s}')">${s}</div>`).join('');
@@ -1639,24 +1667,7 @@ function renderDual() {
     </div>
     <button class="btn btn-danger" style="margin-top:12px" onclick="runDual()">Run dual failure</button>
   </div>
-  <div id="dual-result"></div>
-  <script>
-    let dual1 = null, dual2 = null;
-    function selectDual(n, s) {
-      if (n===1) {
-        document.querySelectorAll('[id^="chip1-"]').forEach(c=>c.classList.remove('selected'));
-        dual1=s; document.getElementById('chip1-'+s).classList.add('selected');
-      } else {
-        document.querySelectorAll('[id^="chip2-"]').forEach(c=>c.classList.remove('selected'));
-        dual2=s; document.getElementById('chip2-'+s).classList.add('selected');
-      }
-    }
-    function runDual() {
-      if (!dual1||!dual2) { alert('Select both SRLGs'); return; }
-      if (dual1===dual2)  { alert('Select two different SRLGs'); return; }
-      window._runDual(dual1, dual2);
-    }
-  <\/script>`;
+  <div id="dual-result"></div>`;
 }
 
 window._runDual = function(srlg1, srlg2) {
