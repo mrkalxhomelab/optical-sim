@@ -478,7 +478,7 @@
   <nav class="sidebar">
     <div class="logo">
       <div class="logo-title">Optical Sim</div>
-      <div class="logo-sub">WAN · v3</div>
+      <div class="logo-sub">Meta WAN · v3</div>
     </div>
 
     <div class="nav-section">Overview</div>
@@ -552,7 +552,7 @@ const MODULATION_TABLE = [
   { name: "DP-16QAM", max_km: 600,  rate_gbps: 400, slots: 1, osnr_db: 22, bits: 8  },
   { name: "DP-8QAM",  max_km: 1200, rate_gbps: 300, slots: 1, osnr_db: 19, bits: 6  },
   { name: "DP-QPSK",  max_km: 3000, rate_gbps: 200, slots: 1, osnr_db: 14, bits: 4  },
-  { name: "DP-BPSK",  max_km: 6000, rate_gbps: 100, slots: 1, osnr_db: 10, bits: 2  },
+  { name: "DP-BPSK",  max_km: 6500, rate_gbps: 100, slots: 1, osnr_db: 10, bits: 2  },
 ];
 
 const SITES = {
@@ -1009,18 +1009,22 @@ function renderTopology() {
 
     // ── HiDPI ──────────────────────────────────────────────────
     function resize() {
-      const rect = canvas.getBoundingClientRect();
       const dpr  = window.devicePixelRatio || 1;
-      canvas.width  = rect.width  * dpr;
-      canvas.height = rect.height * dpr;
+      const W    = canvas.offsetWidth  || canvas.parentElement.offsetWidth  || 900;
+      const H    = canvas.offsetHeight || 520;
+      canvas.width  = W * dpr;
+      canvas.height = H * dpr;
+      canvas.style.width  = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
       draw();
     }
 
     // ── DRAW ───────────────────────────────────────────────────
     function draw() {
-      const W = canvas.getBoundingClientRect().width;
-      const H = canvas.getBoundingClientRect().height;
+      const W = canvas.width  / (window.devicePixelRatio || 1);
+      const H = canvas.height / (window.devicePixelRatio || 1);
       ctx.clearRect(0, 0, W, H);
 
       // background
@@ -1195,8 +1199,13 @@ function renderTopology() {
 
     function getPos(e) {
       const rect = canvas.getBoundingClientRect();
+      const scaleX = (canvas.width  / (window.devicePixelRatio || 1)) / rect.width;
+      const scaleY = (canvas.height / (window.devicePixelRatio || 1)) / rect.height;
       const t = e.touches ? e.touches[0] : e;
-      return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+      return {
+        x: (t.clientX - rect.left) * scaleX,
+        y: (t.clientY - rect.top)  * scaleY
+      };
     }
 
     function hitNode(px, py) {
@@ -1220,9 +1229,10 @@ function renderTopology() {
     canvas.addEventListener('mousemove', e => {
       const { x, y } = getPos(e);
       if (drag) {
-        const rect = canvas.getBoundingClientRect();
-        pos[drag.id].x = Math.max(NODE_R+10, Math.min(rect.width  - NODE_R-10, x - drag.ox));
-        pos[drag.id].y = Math.max(NODE_R+25, Math.min(rect.height - NODE_R-25, y - drag.oy));
+        const W = canvas.width  / (window.devicePixelRatio || 1);
+        const H = canvas.height / (window.devicePixelRatio || 1);
+        pos[drag.id].x = Math.max(NODE_R+10, Math.min(W - NODE_R-10, x - drag.ox));
+        pos[drag.id].y = Math.max(NODE_R+25, Math.min(H - NODE_R-25, y - drag.oy));
         draw();
       } else {
         canvas.style.cursor = hitNode(x, y) ? 'grab' : 'default';
@@ -1241,16 +1251,18 @@ function renderTopology() {
     canvas.addEventListener('touchmove', e => {
       if (!drag) return;
       const { x, y } = getPos(e);
-      const rect = canvas.getBoundingClientRect();
-      pos[drag.id].x = Math.max(NODE_R+10, Math.min(rect.width  - NODE_R-10, x - drag.ox));
-      pos[drag.id].y = Math.max(NODE_R+25, Math.min(rect.height - NODE_R-25, y - drag.oy));
+      const W = canvas.width  / (window.devicePixelRatio || 1);
+      const H = canvas.height / (window.devicePixelRatio || 1);
+      pos[drag.id].x = Math.max(NODE_R+10, Math.min(W - NODE_R-10, x - drag.ox));
+      pos[drag.id].y = Math.max(NODE_R+25, Math.min(H - NODE_R-25, y - drag.oy));
       draw(); e.preventDefault();
     }, { passive: false });
     canvas.addEventListener('touchend', () => { drag = null; });
 
     // ── init ───────────────────────────────────────────────────
     window.addEventListener('resize', resize);
-    resize();
+    // defer so the panel is fully in DOM and has real dimensions
+    setTimeout(resize, 50);
   })();
   <\/script>`;
 }
