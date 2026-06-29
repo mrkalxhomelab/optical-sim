@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optical Network Simulator</title>
+<style>
+  :root {
+    --bg:       #0a0e14;
+    --bg2:      #111720;
+    --bg3:      #1a2233;
+    --border:   #1e2d45;
+    --c-band:   #00c8ff;
+    --l-band:   #a259ff;
+    --green:    #00e676;
+    --yellow:   #ffd740;
+    --red:      #ff5252;
+    --text:     #cdd6f4;
+    --muted:    #6c7a96;
+    --accent:   #00c8ff;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --font-ui:   'Inter', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── LAYOUT ── */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+
+  .sidebar {
+    width: 220px;
+    min-width: 220px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  /* ── SIDEBAR ── */
+  .logo {
+    padding: 16px 16px 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .logo-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--c-band);
+  }
+  .logo-sub {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .nav-section {
+    padding: 6px 16px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+
+  .nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    text-align: left;
+    border-left: 2px solid transparent;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .nav-btn:hover { background: var(--bg3); color: #fff; }
+  .nav-btn.active {
+    background: var(--bg3);
+    border-left-color: var(--c-band);
+    color: var(--c-band);
+  }
+  .nav-btn .kbd {
+    margin-left: auto;
+    font-size: 10px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 4px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── TOPBAR ── */
+  .page-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .page-sub { font-size: 12px; color: var(--muted); }
+  .topbar-actions { margin-left: auto; display: flex; gap: 8px; }
+
+  .btn {
+    padding: 6px 14px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--text);
+    font-size: 12px;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .btn:hover { background: var(--border); color: #fff; }
+  .btn-primary {
+    background: var(--c-band);
+    color: var(--bg);
+    border-color: var(--c-band);
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: #33d4ff; border-color: #33d4ff; color: var(--bg); }
+  .btn-danger { border-color: var(--red); color: var(--red); }
+  .btn-danger:hover { background: var(--red); color: #fff; }
+
+  /* ── CARDS & PANELS ── */
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* ── STAT CARDS ── */
+  .stat-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: 700; font-family: var(--font-mono); }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .stat-c { color: var(--c-band); }
+  .stat-l { color: var(--l-band); }
+  .stat-g { color: var(--green); }
+  .stat-y { color: var(--yellow); }
+  .stat-r { color: var(--red); }
+
+  /* ── TABLES ── */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .tbl th {
+    text-align: left;
+    padding: 6px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .tbl td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+  }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl tr:hover td { background: var(--bg3); }
+  .tbl .mono { font-family: var(--font-mono); }
+
+  /* ── BADGES ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+  }
+  .badge-c  { background: rgba(0,200,255,.15); color: var(--c-band); border: 1px solid rgba(0,200,255,.3); }
+  .badge-l  { background: rgba(162,89,255,.15); color: var(--l-band); border: 1px solid rgba(162,89,255,.3); }
+  .badge-ok { background: rgba(0,230,118,.12); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+  .badge-warn { background: rgba(255,215,64,.12); color: var(--yellow); border: 1px solid rgba(255,215,64,.3); }
+  .badge-err { background: rgba(255,82,82,.12); color: var(--red); border: 1px solid rgba(255,82,82,.3); }
+  .badge-dc  { background: rgba(0,200,255,.1); color: var(--c-band); border: 1px solid rgba(0,200,255,.2); }
+  .badge-pop { background: rgba(162,89,255,.1); color: var(--l-band); border: 1px solid rgba(162,89,255,.2); }
+
+  /* ── SPECTRUM BAR ── */
+  .spectrum-row { margin-bottom: 10px; }
+  .spectrum-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+  }
+  .spectrum-bar-wrap {
+    height: 18px;
+    background: var(--bg3);
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .spectrum-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width .4s ease;
+  }
+  .spectrum-fill.c-fill { background: linear-gradient(90deg, var(--c-band), #0090cc); }
+  .spectrum-fill.l-fill { background: linear-gradient(90deg, var(--l-band), #7040cc); }
+  .spectrum-pct {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: rgba(255,255,255,.7);
+  }
+
+  /* ── EXPLAIN BOX ── */
+  .explain {
+    background: rgba(0,200,255,.05);
+    border: 1px solid rgba(0,200,255,.2);
+    border-left: 3px solid var(--c-band);
+    border-radius: 0 6px 6px 0;
+    padding: 12px 16px;
+    margin: 12px 0;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .explain-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--c-band);
+    margin-bottom: 6px;
+  }
+  .analogy {
+    background: rgba(162,89,255,.06);
+    border: 1px solid rgba(162,89,255,.2);
+    border-left: 3px solid var(--l-band);
+    border-radius: 0 6px 6px 0;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 12px;
+  }
+  .analogy-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--l-band);
+    margin-bottom: 4px;
+  }
+  .analogy-row { display: flex; gap: 8px; margin: 2px 0; font-size: 12px; }
+  .analogy-key { color: var(--muted); min-width: 70px; }
+
+  /* ── BEFORE/AFTER TABLE ── */
+  .ba-table { border-collapse: collapse; font-size: 12px; width: 100%; margin: 8px 0; }
+  .ba-table th { padding: 5px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: var(--bg3); }
+  .ba-table th.before { color: var(--green); }
+  .ba-table th.after  { color: var(--yellow); }
+  .ba-table td { padding: 6px 12px; border-top: 1px solid var(--border); font-family: var(--font-mono); }
+  .ba-table tr:last-child td { border-bottom: none; }
+
+  /* ── LOG OUTPUT ── */
+  .log {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    max-height: 320px;
+    overflow-y: auto;
+    color: var(--text);
+  }
+  .log .ok   { color: var(--green); }
+  .log .warn { color: var(--yellow); }
+  .log .err  { color: var(--red); }
+  .log .info { color: var(--c-band); }
+  .log .dim  { color: var(--muted); }
+
+  /* ── FORM ── */
+  .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 160px; }
+  .form-group label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+  .form-group select, .form-group input {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font-mono);
+    padding: 7px 10px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .form-group select:focus, .form-group input:focus { border-color: var(--c-band); }
+
+  /* ── TOPOLOGY MAP ── */
+  .topo-svg { width: 100%; height: 340px; }
+
+  /* ── GLOSSARY ── */
+  .glossary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .glossary-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+  .glossary-card:hover { border-color: var(--c-band); }
+  .glossary-term { font-size: 13px; font-weight: 700; color: var(--c-band); margin-bottom: 6px; }
+  .glossary-def { font-size: 12px; color: var(--text); line-height: 1.6; }
+
+  /* ── FAULT RESULT ── */
+  .fault-svc {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .fault-svc-name { font-weight: 700; font-family: var(--font-mono); margin-bottom: 8px; }
+
+  /* ── MODULATION TABLE ── */
+  .mod-bar { height: 6px; border-radius: 3px; background: var(--bg3); overflow: hidden; }
+  .mod-bar-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--c-band)); border-radius: 3px; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 2px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .tab {
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    margin-bottom: -1px;
+    transition: color .15s, border-color .15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--c-band); border-bottom-color: var(--c-band); }
+
+  /* ── NOTIFICATION ── */
+  .notif {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--green);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-size: 13px;
+    z-index: 999;
+    max-width: 320px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.4);
+    animation: slideIn .2s ease;
+  }
+  @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 13px; }
+  .empty-icon { font-size: 32px; margin-bottom: 8px; }
+
+  code { font-family: var(--font-mono); font-size: 11px; background: var(--bg3); padding: 1px 5px; border-radius: 3px; }
+
+  .srlg-check { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+  .srlg-chip {
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--text);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .srlg-chip:hover { border-color: var(--yellow); color: var(--yellow); }
+  .srlg-chip.selected { border-color: var(--red); background: rgba(255,82,82,.1); color: var(--red); }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="logo">
+      <div class="logo-title">Optical Sim</div>
+      <div class="logo-sub">Meta WAN · v3</div>
+    </div>
+
+    <div class="nav-section">Overview</div>
+    <button class="nav-btn active" onclick="showPage('dashboard')">
+      <span>📊</span> Dashboard
+    </button>
+    <button class="nav-btn" onclick="showPage('topology')">
+      <span>🗺</span> Topology
+    </button>
+    <button class="nav-btn" onclick="showPage('spectrum')">
+      <span>📡</span> Spectrum
+    </button>
+
+    <div class="nav-section">Operations</div>
+    <button class="nav-btn" onclick="showPage('allocate')">
+      <span>➕</span> Allocate Service
+    </button>
+    <button class="nav-btn" onclick="showPage('fault')">
+      <span>⚡</span> Fiber Cut
+    </button>
+    <button class="nav-btn" onclick="showPage('dual')">
+      <span>💥</span> Dual Failure
+    </button>
+
+    <div class="nav-section">Scenarios</div>
+    <button class="nav-btn" onclick="loadH1(); showPage('spectrum')">
+      <span>📁</span> POR H1 2026
+    </button>
+    <button class="nav-btn" onclick="loadH2(); showPage('spectrum')">
+      <span>📁</span> POR H2 2026 <span style="font-size:9px;color:var(--l-band);margin-left:2px">C+L</span>
+    </button>
+    <button class="nav-btn" onclick="resetAll(); showPage('dashboard')">
+      <span>🗑</span> Reset
+    </button>
+
+    <div class="nav-section">Reference</div>
+    <button class="nav-btn" onclick="showPage('modtable')">
+      <span>📋</span> Modulation Table
+    </button>
+    <button class="nav-btn" onclick="showPage('glossary')">
+      <span>📖</span> Glossary
+    </button>
+
+    <div class="sidebar-footer">
+      C-Band: 97ch · L-Band: 97ch<br>50 GHz spacing · 38.8 Tbps/band
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="page-title" id="page-title">Dashboard</div>
+        <div class="page-sub" id="page-sub">Network overview</div>
+      </div>
+      <div class="topbar-actions" id="topbar-actions"></div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<!-- NOTIFICATION -->
+<div id="notif" style="display:none" class="notif"></div>
+
+<script>
+// ============================================================
+// CORE DATA
+// ============================================================
+const MODULATION_TABLE = [
+  { name: "DP-64QAM", max_km: 150,  rate_gbps: 800, slots: 2, osnr_db: 28, bits: 12 },
+  { name: "DP-16QAM", max_km: 600,  rate_gbps: 400, slots: 1, osnr_db: 22, bits: 8  },
+  { name: "DP-8QAM",  max_km: 1200, rate_gbps: 300, slots: 1, osnr_db: 19, bits: 6  },
+  { name: "DP-QPSK",  max_km: 3000, rate_gbps: 200, slots: 1, osnr_db: 14, bits: 4  },
+  { name: "DP-BPSK",  max_km: 6000, rate_gbps: 100, slots: 1, osnr_db: 10, bits: 2  },
+];
+
+const SITES = {
+  "ROADM-A": { type: "DC",  name: "DC-A",  full: "DC-A (Altoona, PA)",    x: 200, y: 200 },
+  "ROADM-B": { type: "POP", name: "POP-B", full: "POP-B (NYC)",            x: 380, y: 130 },
+  "ROADM-C": { type: "DC",  name: "DC-C",  full: "DC-C (Ashburn, VA)",     x: 380, y: 270 },
+  "ROADM-D": { type: "POP", name: "POP-D", full: "POP-D (London, UK)",     x: 600, y: 130 },
+  "ROADM-E": { type: "DC",  name: "DC-E",  full: "DC-E (Lulea, SE)",       x: 700, y: 55  },
+};
+
+const OPTICAL_LINKS = [
+  { src:"ROADM-A", dst:"ROADM-B", km:240,  fid:"FIB-001", srlgs:["SRLG-001"], name:"I-95 Rail-1" },
+  { src:"ROADM-A", dst:"ROADM-B", km:240,  fid:"FIB-002", srlgs:["SRLG-001"], name:"I-95 Rail-2" },
+  { src:"ROADM-B", dst:"ROADM-C", km:160,  fid:"FIB-003", srlgs:["SRLG-002"], name:"I-95S Rail-1" },
+  { src:"ROADM-B", dst:"ROADM-C", km:160,  fid:"FIB-004", srlgs:["SRLG-002"], name:"I-95S Rail-2" },
+  { src:"ROADM-A", dst:"ROADM-C", km:400,  fid:"FIB-005", srlgs:["SRLG-003"], name:"Inland Route" },
+  { src:"ROADM-A", dst:"ROADM-C", km:450,  fid:"FIB-006", srlgs:["SRLG-006"], name:"Coastal Route" },
+  { src:"ROADM-B", dst:"ROADM-D", km:5500, fid:"FIB-007", srlgs:["SRLG-004"], name:"TAT-14" },
+  { src:"ROADM-B", dst:"ROADM-D", km:6200, fid:"FIB-008", srlgs:["SRLG-005"], name:"MAREA" },
+  { src:"ROADM-A", dst:"ROADM-D", km:5800, fid:"FIB-009", srlgs:["SRLG-004"], name:"TAT-14 via A" },
+  { src:"ROADM-D", dst:"ROADM-E", km:1800, fid:"FIB-010", srlgs:["SRLG-007"], name:"Nordic Terr." },
+  { src:"ROADM-D", dst:"ROADM-E", km:1900, fid:"FIB-011", srlgs:["SRLG-008"], name:"Baltic Subsea" },
+];
+
+const SRLG_PATHS = [
+  { name:"DC-A_to_POP-B",     km:240,  srlg:"SRLG-001", src:"ROADM-A", dst:"ROADM-B" },
+  { name:"POP-B_to_DC-C",     km:160,  srlg:"SRLG-002", src:"ROADM-B", dst:"ROADM-C" },
+  { name:"DC-A_to_DC-C_long", km:400,  srlg:"SRLG-003", src:"ROADM-A", dst:"ROADM-C" },
+  { name:"DC-A_to_POP-D",     km:1800, srlg:"SRLG-004", src:"ROADM-A", dst:"ROADM-D" },
+  { name:"POP-B_to_POP-D",    km:2200, srlg:"SRLG-005", src:"ROADM-B", dst:"ROADM-D" },
+];
+
+const GLOSSARY = {
+  "ROADM":       { short:"Reconfigurable Optical Add-Drop Multiplexer", def:"The main switching node in an optical network — a 'router for light'. It can add, drop, or pass through individual wavelengths without converting to electrical signals. Every major PoP or DC has at least one ROADM.", analogy:null },
+  "SRLG":        { short:"Shared Risk Link Group", def:"A set of fiber links that share a common physical risk: same conduit, same duct, same cable. If ONE event (excavator, anchor, earthquake) hits the SRLG, ALL links in the group fail simultaneously.", analogy:"Multiple VLANs on one physical trunk — trunk dies, all VLANs die." },
+  "C-Band":      { short:"Conventional Band (191–196 THz)", def:"The workhorse spectrum for long-haul optical (~1530–1565 nm). Standard EDFA amplifiers cover this band. In this simulator: 97 channels at 50 GHz spacing = 38.8 Tbps max at 400G/ch.", analogy:"Primary /16 subnet — finite pool, 97 slots." },
+  "L-Band":      { short:"Long-wavelength Band (186–191 THz)", def:"Doubles capacity on existing fiber, but requires different amplifiers (Raman or L-EDFA) — significant hardware cost. Typically activated when C-Band is >70–80% full.", analogy:"Secondary /16 (overflow pool) — needs new gear to activate." },
+  "Modulation":  { short:"Bits encoded per symbol", def:"Higher modulation = more bits/symbol = more Gbps per channel. But higher modulation needs better signal quality (higher OSNR), which degrades with distance. Short path → DP-64QAM (800G/ch). Long path → DP-BPSK (100G/ch).", analogy:"Link speed (100M / 1G / 10G) — longer cable = slower speed." },
+  "OSNR":        { short:"Optical Signal-to-Noise Ratio (dB)", def:"The ratio of signal power to noise power. Every amplifier (EDFA) adds noise. Longer span = more amps = more noise = lower OSNR = forced to use lower modulation. This is WHY distance limits modulation choice.", analogy:null },
+  "SAM":         { short:"Spectrum Assignment Module", def:"The component responsible for deciding which frequency slots to assign to a new service. This simulator uses First-Fit: assign the lowest available frequency slot first.", analogy:"DHCP for light — auto-assigns the next free slot." },
+  "EBB":         { short:"Express Backbone", def:"High-capacity DC-to-DC traffic: storage replication, ML training data, internal infrastructure. Provisioned in multiple planes (P1, P2) for redundancy.", analogy:null },
+  "CBB":         { short:"Capacity Backbone", def:"User-facing traffic from DCs to PoPs: videos, feeds, API calls. Same optical path as EBB but serves different traffic class.", analogy:null },
+  "POR":         { short:"Plan of Record", def:"The semi-annual capacity plan. Capacity Planning publishes H1 and H2 PORs listing which services must be provisioned. The optical team translates demands into spectrum allocations 12–18 months ahead.", analogy:null },
+  "Restoration": { short:"Re-routing after a failure", def:"The network finds an alternative path and moves traffic there. Key questions: is an alternative available? Is it longer (may degrade modulation)? Does it have free spectrum? Note: there is a short traffic outage during switchover.", analogy:"OSPF/IS-IS reconvergence — SPF runs on remaining links." },
+  "EDFA":        { short:"Erbium-Doped Fiber Amplifier", def:"Boosts optical signal power without electrical conversion. Placed every ~80–100 km. Each EDFA adds ASE noise which accumulates and degrades OSNR. C-Band and L-Band require DIFFERENT amplifier types.", analogy:null },
+  "DWDM":        { short:"Dense Wavelength Division Multiplexing", def:"Sending multiple optical channels (wavelengths) over a single fiber simultaneously. In this simulator: 97 channels × 50 GHz spacing per band.", analogy:null },
+};
+
+// ============================================================
+// SIMULATOR STATE
+// ============================================================
+let state = {
+  links: JSON.parse(JSON.stringify(OPTICAL_LINKS)), // mutable copy
+  services: [],   // { name, path, km, srlg, src, dst, gbps, channels, mod, rate, band, freqStart, freqEnd }
+  allocations: {}, // path_name -> [{freq, band}]
+};
+
+// C-Band channels: 97 slots, 191.275 THz, 50 GHz step
+function buildChannels(band) {
+  const start = band === 'C' ? 191.275 : 186.050;
+  const chs = [];
+  for (let i = 0; i < 97; i++) {
+    chs.push(parseFloat((start + i * 0.05).toFixed(3)));
+  }
+  return chs;
+}
+const C_CHANNELS = buildChannels('C');
+const L_CHANNELS = buildChannels('L');
+
+function selectModulation(km) {
+  let best = null;
+  for (const m of MODULATION_TABLE) {
+    if (km <= m.max_km) {
+      if (!best || m.rate_gbps > best.rate_gbps) best = m;
+    }
+  }
+  return best;
+}
+
+function getUsed(pathName, band) {
+  const alloc = state.allocations[pathName] || [];
+  return alloc.filter(a => a.band === band).map(a => a.freq);
+}
+
+function getAvailable(pathName, band) {
+  const used = new Set(getUsed(pathName, band));
+  const pool = band === 'C' ? C_CHANNELS : L_CHANNELS;
+  return pool.filter(f => !used.has(f));
+}
+
+function allocate(name, pathName, gbps, forceBand = null) {
+  const pathDef = SRLG_PATHS.find(p => p.name === pathName);
+  if (!pathDef) return { ok: false, msg: `Path '${pathName}' not found` };
+
+  const mod = selectModulation(pathDef.km);
+  if (!mod) return { ok: false, msg: `No modulation supports ${pathDef.km} km` };
+
+  const channels = Math.ceil(gbps / mod.rate_gbps);
+  const slotsNeeded = channels * mod.slots;
+
+  const tryBand = (band) => {
+    const avail = getAvailable(pathName, band);
+    if (avail.length < slotsNeeded) return null;
+    const slots = avail.slice(0, slotsNeeded);
+    slots.forEach(f => {
+      if (!state.allocations[pathName]) state.allocations[pathName] = [];
+      state.allocations[pathName].push({ freq: f, band, service: name });
+    });
+    const freqStart = slots[0];
+    const freqEnd = slots[slots.length - 1];
+    const svc = { name, path: pathName, km: pathDef.km, srlg: pathDef.srlg,
+                  src: pathDef.src, dst: pathDef.dst, gbps, channels,
+                  mod: mod.name, rate: mod.rate_gbps, band,
+                  freqStart, freqEnd, osnr: mod.osnr_db };
+    state.services.push(svc);
+    return svc;
+  };
+
+  if (forceBand) {
+    const res = tryBand(forceBand);
+    if (!res) return { ok: false, msg: `${forceBand}-Band full on '${pathName}'` };
+    return { ok: true, svc: res };
+  }
+
+  let res = tryBand('C');
+  if (!res) {
+    res = tryBand('L');
+    if (!res) return { ok: false, msg: `Both C and L bands full on '${pathName}'` };
+    return { ok: true, svc: res, overflow: true };
+  }
+  return { ok: true, svc: res };
+}
+
+function resetAll() {
+  state.services = [];
+  state.allocations = {};
+  state.links = JSON.parse(JSON.stringify(OPTICAL_LINKS));
+  notify('State cleared', 'ok');
+}
+
+// ============================================================
+// DIJKSTRA
+// ============================================================
+function dijkstra(src, dst, cutSrlgs = []) {
+  const nodes = Object.keys(SITES);
+  const dist = {};
+  const prev = {};
+  nodes.forEach(n => { dist[n] = Infinity; prev[n] = null; });
+  dist[src] = 0;
+  const visited = new Set();
+  const pq = [[0, src]];
+
+  // adjacency from current links (may have extra links added)
+  const adj = {};
+  nodes.forEach(n => adj[n] = []);
+  for (const lnk of state.links) {
+    const cut = lnk.srlgs.some(s => cutSrlgs.includes(s));
+    if (!cut) {
+      adj[lnk.src].push({ node: lnk.dst, km: lnk.km });
+      adj[lnk.dst].push({ node: lnk.src, km: lnk.km });
+    }
+  }
+
+  while (pq.length) {
+    pq.sort((a, b) => a[0] - b[0]);
+    const [d, u] = pq.shift();
+    if (visited.has(u)) continue;
+    visited.add(u);
+    if (u === dst) {
+      const path = [];
+      let cur = dst;
+      while (cur) { path.unshift(cur); cur = prev[cur]; }
+      return { path, km: dist[dst] };
+    }
+    for (const { node, km } of adj[u]) {
+      if (!visited.has(node) && d + km < dist[node]) {
+        dist[node] = d + km;
+        prev[node] = u;
+        pq.push([d + km, node]);
+      }
+    }
+  }
+  return null;
+}
+
+function isConnected(src, dst, cutSrlgs = []) {
+  return dijkstra(src, dst, cutSrlgs) !== null;
+}
+
+function getAllSrlgs() {
+  const s = new Set();
+  for (const l of state.links) l.srlgs.forEach(x => s.add(x));
+  return [...s].sort();
+}
+
+// ============================================================
+// SCENARIOS
+// ============================================================
+function loadH1() {
+  resetAll();
+  const svcs = [
+    ["EBB-P1-A-B","DC-A_to_POP-B",4800],
+    ["EBB-P2-A-B","DC-A_to_POP-B",4800],
+    ["CBB-A-B",   "DC-A_to_POP-B",2400],
+    ["EBB-P1-B-C","POP-B_to_DC-C",3200],
+    ["CBB-B-C",   "POP-B_to_DC-C",1600],
+    ["EBB-A-C",   "DC-A_to_DC-C_long",6400],
+    ["CBB-A-D",   "DC-A_to_POP-D",2000],
+    ["EBB-B-D",   "POP-B_to_POP-D",1800],
+  ];
+  svcs.forEach(([n,p,g]) => allocate(n, p, g));
+  notify('POR H1 2026 loaded — 8 services', 'ok');
+}
+
+function loadH2() {
+  resetAll();
+  const c = [
+    ["EBB-P1-A-B","DC-A_to_POP-B",4800],["EBB-P2-A-B","DC-A_to_POP-B",4800],
+    ["EBB-P3-A-B","DC-A_to_POP-B",4800],["CBB-P1-A-B","DC-A_to_POP-B",4800],
+    ["CBB-P2-A-B","DC-A_to_POP-B",2400],
+    ["EBB-P1-B-C","POP-B_to_DC-C",3200],["EBB-P2-B-C","POP-B_to_DC-C",3200],
+    ["CBB-B-C",   "POP-B_to_DC-C",2400],
+    ["EBB-P1-A-C","DC-A_to_DC-C_long",6400],["EBB-P2-A-C","DC-A_to_DC-C_long",6400],
+    ["EBB-P3-A-C","DC-A_to_DC-C_long",6400],["CBB-P1-A-C","DC-A_to_DC-C_long",4800],
+    ["CBB-A-D",   "DC-A_to_POP-D",2000],["EBB-A-D","DC-A_to_POP-D",2000],
+    ["EBB-B-D",   "POP-B_to_POP-D",1800],["CBB-B-D","POP-B_to_POP-D",1600],
+  ];
+  const l = [
+    ["AI-TRAIN-P1-A-B","DC-A_to_POP-B",12000],
+    ["AI-TRAIN-P2-A-B","DC-A_to_POP-B",8000],
+    ["AI-TRAIN-A-C","DC-A_to_DC-C_long",10000],
+    ["ML-INFRA-A-C","DC-A_to_DC-C_long",4000],
+  ];
+  c.forEach(([n,p,g]) => allocate(n, p, g, 'C'));
+  l.forEach(([n,p,g]) => allocate(n, p, g, 'L'));
+  notify('POR H2 2026 loaded — 20 services (C+L Band)', 'ok');
+}
+
+// ============================================================
+// NOTIFY
+// ============================================================
+function notify(msg, type = 'ok') {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.style.borderLeftColor = type === 'ok' ? 'var(--green)' : type === 'warn' ? 'var(--yellow)' : 'var(--red)';
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display = 'none', 3000);
+}
+
+// ============================================================
+// RENDER HELPERS
+// ============================================================
+function spectrumBar(pathName) {
+  const usedC = getUsed(pathName, 'C').length;
+  const usedL = getUsed(pathName, 'L').length;
+  const total = 97;
+  const pctC = (usedC / total * 100).toFixed(0);
+  const pctL = (usedL / total * 100).toFixed(0);
+  const iconC = pctC < 50 ? 'badge-ok' : pctC < 80 ? 'badge-warn' : 'badge-err';
+
+  const mod = selectModulation(SRLG_PATHS.find(p => p.name === pathName)?.km || 999);
+  const rate = mod ? mod.rate_gbps : 400;
+  const tbpsC = (usedC * rate / 1000).toFixed(1);
+  const tbpsL = (usedL * rate / 1000).toFixed(1);
+
+  let html = `<div class="spectrum-row">
+    <div class="spectrum-label">
+      <span>${pathName}</span>
+      <span style="display:flex;gap:8px;align-items:center">
+        <span class="badge ${iconC}">${pctC}%</span>
+        <span class="badge badge-c">C: ${usedC}/97 (${tbpsC}T)</span>
+        ${usedL ? `<span class="badge badge-l">L: ${usedL}/97 (${tbpsL}T)</span>` : ''}
+      </span>
+    </div>
+    <div class="spectrum-bar-wrap">
+      <div class="spectrum-fill c-fill" style="width:${pctC}%"></div>
+      <span class="spectrum-pct">C-Band</span>
+    </div>`;
+  if (usedL) {
+    html += `<div class="spectrum-bar-wrap" style="margin-top:4px">
+      <div class="spectrum-fill l-fill" style="width:${pctL}%"></div>
+      <span class="spectrum-pct">L-Band overflow</span>
+    </div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function badgeMod(mod) {
+  const colors = { "DP-64QAM":"var(--green)","DP-16QAM":"var(--c-band)","DP-8QAM":"var(--yellow)","DP-QPSK":"orange","DP-BPSK":"var(--red)" };
+  return `<span style="color:${colors[mod]||'var(--text)'};font-weight:700">${mod}</span>`;
+}
+
+// ============================================================
+// PAGES
+// ============================================================
+const PAGES = {
+  dashboard: { title: 'Dashboard', sub: 'Network overview' },
+  topology:  { title: 'Topology', sub: 'ROADM nodes and fiber links' },
+  spectrum:  { title: 'Spectrum Utilization', sub: 'C-Band and L-Band usage per path' },
+  allocate:  { title: 'Allocate Service', sub: 'Provision a new optical service' },
+  fault:     { title: 'Fiber Cut', sub: 'Simulate a single SRLG failure' },
+  dual:      { title: 'Dual Failure', sub: 'Simulate two simultaneous SRLG failures' },
+  modtable:  { title: 'Modulation Table', sub: 'All formats — distance, rate, OSNR' },
+  glossary:  { title: 'Glossary', sub: 'Optical networking terms explained' },
+};
+
+function showPage(id) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const btn = [...document.querySelectorAll('.nav-btn')].find(b => b.getAttribute('onclick') === `showPage('${id}')`);
+  if (btn) btn.classList.add('active');
+
+  const p = PAGES[id] || { title: id, sub: '' };
+  document.getElementById('page-title').textContent = p.title;
+  document.getElementById('page-sub').textContent = p.sub;
+  document.getElementById('topbar-actions').innerHTML = '';
+  document.getElementById('content').innerHTML = renderPage(id);
+}
+
+function renderPage(id) {
+  switch(id) {
+    case 'dashboard': return renderDashboard();
+    case 'topology':  return renderTopology();
+    case 'spectrum':  return renderSpectrum();
+    case 'allocate':  return renderAllocate();
+    case 'fault':     return renderFault();
+    case 'dual':      return renderDual();
+    case 'modtable':  return renderModTable();
+    case 'glossary':  return renderGlossary();
+    default: return '<div class="empty">Page not found</div>';
+  }
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────
+function renderDashboard() {
+  const totalSvcs = state.services.length;
+  const totalGbps = state.services.reduce((s, x) => s + x.gbps, 0);
+  const lSvcs = state.services.filter(s => s.band === 'L').length;
+  const allUsedC = Object.values(state.allocations).flat().filter(a => a.band === 'C').length;
+  const allUsedL = Object.values(state.allocations).flat().filter(a => a.band === 'L').length;
+
+  return `
+  <div class="grid-3" style="margin-bottom:16px">
+    <div class="stat-card">
+      <div class="stat-label">Active Services</div>
+      <div class="stat-value stat-g">${totalSvcs}</div>
+      <div class="stat-sub">${lSvcs > 0 ? lSvcs + ' on L-Band' : 'C-Band only'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Provisioned</div>
+      <div class="stat-value stat-c">${(totalGbps/1000).toFixed(1)}<span style="font-size:14px">T</span></div>
+      <div class="stat-sub">Gbps allocated</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Channels Used</div>
+      <div class="stat-value stat-y">${allUsedC + allUsedL}</div>
+      <div class="stat-sub"><span style="color:var(--c-band)">C: ${allUsedC}</span> &nbsp; <span style="color:var(--l-band)">L: ${allUsedL}</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Spectrum Status — All Paths</div>
+    ${SRLG_PATHS.map(p => spectrumBar(p.name)).join('')}
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">Quick Start</div>
+      <div class="explain">
+        <div class="explain-title">Getting Started</div>
+        <p>Load a scenario from the sidebar, then explore:<br>
+        <br>
+        <b>POR H1 2026</b> — light load, all C-Band, room to grow<br>
+        <b>POR H2 2026</b> — heavy load, C+L Band active on 2 paths<br>
+        <br>
+        Then use <b>Spectrum</b> to see utilization, <b>Fiber Cut</b> to test resilience,
+        or <b>Allocate</b> to add new services step by step.
+        </p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">IP Analogies</div>
+      <div class="analogy">
+        <div class="analogy-title">If you know BGP/OSPF…</div>
+        <div class="analogy-row"><span class="analogy-key">Channel</span><span>= IP address (unique, finite)</span></div>
+        <div class="analogy-row"><span class="analogy-key">C-Band</span><span>= primary /16 pool (97 slots)</span></div>
+        <div class="analogy-row"><span class="analogy-key">L-Band</span><span>= secondary /16 (overflow)</span></div>
+        <div class="analogy-row"><span class="analogy-key">SRLG</span><span>= VLANs on one trunk</span></div>
+        <div class="analogy-row"><span class="analogy-key">Modulation</span><span>= link speed (distance limits it)</span></div>
+        <div class="analogy-row"><span class="analogy-key">Restoration</span><span>= OSPF reconvergence</span></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── TOPOLOGY ─────────────────────────────────────────────────
+function renderTopology() {
+  const nodeColors = { DC: 'var(--c-band)', POP: 'var(--l-band)' };
+
+  // Draw SVG
+  let edges = '';
+  const drawn = new Set();
+  for (const lnk of state.links) {
+    const key = [lnk.src,lnk.dst].sort().join('-');
+    if (drawn.has(key)) { drawn.add(key+'2'); continue; }
+    drawn.add(key);
+    const s = SITES[lnk.src], d = SITES[lnk.dst];
+    const isSubsea = lnk.name.includes('TAT') || lnk.name.includes('MAREA') || lnk.name.includes('Baltic');
+    edges += `<line x1="${s.x}" y1="${s.y}" x2="${d.x}" y2="${d.y}"
+      stroke="${isSubsea ? 'var(--l-band)' : 'var(--border)'}"
+      stroke-width="${isSubsea ? 1.5 : 2}"
+      stroke-dasharray="${isSubsea ? '6,4' : 'none'}"
+      opacity="0.7"/>
+    <text x="${(s.x+d.x)/2}" y="${(s.y+d.y)/2 - 5}" fill="var(--muted)" font-size="9" text-anchor="middle"
+      font-family="monospace">${lnk.km >= 1000 ? (lnk.km/1000).toFixed(1)+'k' : lnk.km}km</text>`;
+  }
+
+  let nodes = '';
+  for (const [id, s] of Object.entries(SITES)) {
+    const col = s.type === 'DC' ? 'var(--c-band)' : 'var(--l-band)';
+    nodes += `
+    <circle cx="${s.x}" cy="${s.y}" r="20" fill="var(--bg2)" stroke="${col}" stroke-width="2"/>
+    <text x="${s.x}" y="${s.y+4}" fill="${col}" font-size="9" text-anchor="middle" font-weight="700" font-family="monospace">${s.name}</text>
+    <text x="${s.x}" y="${s.y+30}" fill="var(--muted)" font-size="9" text-anchor="middle">${s.full.split('(')[1]?.replace(')','') || ''}</text>`;
+  }
+
+  const legend = `
+    <line x1="10" y1="300" x2="40" y2="300" stroke="var(--border)" stroke-width="2"/>
+    <text x="46" y="304" fill="var(--muted)" font-size="10">Terrestrial</text>
+    <line x1="10" y1="316" x2="40" y2="316" stroke="var(--l-band)" stroke-width="1.5" stroke-dasharray="6,4"/>
+    <text x="46" y="320" fill="var(--muted)" font-size="10">Submarine</text>
+    <circle cx="22" cy="332" r="6" fill="var(--bg2)" stroke="var(--c-band)" stroke-width="2"/>
+    <text x="34" y="336" fill="var(--muted)" font-size="10">DC</text>
+    <circle cx="22" cy="348" r="6" fill="var(--bg2)" stroke="var(--l-band)" stroke-width="2"/>
+    <text x="34" y="352" fill="var(--muted)" font-size="10">PoP</text>`;
+
+  const svg = `<svg class="topo-svg" viewBox="0 0 760 360" xmlns="http://www.w3.org/2000/svg">
+    ${edges}${nodes}${legend}
+  </svg>`;
+
+  // Link table
+  const rows = state.links.map(l =>
+    `<tr>
+      <td>${l.fid}</td>
+      <td>${l.src} ↔ ${l.dst}</td>
+      <td>${l.km.toLocaleString()} km</td>
+      <td>${l.srlgs[0]}</td>
+      <td>${l.name}</td>
+      <td>${(() => { const m = selectModulation(l.km); return m ? `${badgeMod(m.name)} ${m.rate_gbps}G/ch` : '—'; })()}</td>
+    </tr>`).join('');
+
+  return `
+  <div class="panel">
+    <div class="panel-title">Network Map</div>
+    ${svg}
+  </div>
+  <div class="panel">
+    <div class="panel-title">Optical Links</div>
+    <table class="tbl">
+      <thead><tr><th>Fiber</th><th>Route</th><th>Distance</th><th>SRLG</th><th>Name</th><th>Modulation</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+// ── SPECTRUM ─────────────────────────────────────────────────
+function renderSpectrum() {
+  const bars = SRLG_PATHS.map(p => spectrumBar(p.name)).join('');
+
+  const svcRows = state.services.map(s => {
+    const cap = s.channels * s.rate;
+    return `<tr>
+      <td>${s.name}</td>
+      <td style="color:var(--muted)">${s.path}</td>
+      <td>${badgeMod(s.mod)}</td>
+      <td>${s.channels}</td>
+      <td><span class="badge badge-${s.band.toLowerCase()}">${s.band}-Band</span></td>
+      <td>${cap.toLocaleString()} G</td>
+      <td style="color:var(--muted)">${s.freqStart.toFixed(3)} → ${s.freqEnd.toFixed(3)} THz</td>
+    </tr>`;
+  }).join('');
+
+  const empty = state.services.length === 0
+    ? `<div class="empty"><div class="empty-icon">📡</div>No services allocated yet.<br>Load a scenario from the sidebar or use Allocate Service.</div>`
+    : '';
+
+  return `
+  <div class="panel">
+    <div class="panel-title">C-Band and L-Band Usage</div>
+    ${bars}
+    <div class="explain" style="margin-top:12px">
+      <div class="explain-title">How to read the bars</div>
+      <b>C-Band</b> (blue) = primary spectrum pool, 97 channels × 50 GHz.<br>
+      <b>L-Band</b> (purple) = overflow pool, activated when C-Band exceeds ~80%.<br>
+      L-Band requires different amplifiers at every site — a hardware project, not a config change.
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Active Services</div>
+    ${empty}
+    ${state.services.length > 0 ? `<table class="tbl">
+      <thead><tr><th>Service</th><th>Path</th><th>Modulation</th><th>Channels</th><th>Band</th><th>Capacity</th><th>Freq Range</th></tr></thead>
+      <tbody>${svcRows}</tbody>
+    </table>` : ''}
+  </div>`;
+}
+
+// ── ALLOCATE ─────────────────────────────────────────────────
+function renderAllocate() {
+  const pathOpts = SRLG_PATHS.map(p => {
+    const mod = selectModulation(p.km);
+    const usedC = getUsed(p.name, 'C').length;
+    const freeC = 97 - usedC;
+    return `<option value="${p.name}">${p.name} — ${p.km}km — ${mod?.name||'?'} @ ${mod?.rate_gbps||'?'}G/ch — ${freeC}/97 C-Band free</option>`;
+  }).join('');
+
+  return `
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">New Service</div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label>Service Name</label>
+          <input id="svc-name" type="text" placeholder="e.g. EBB-P3-A-B" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label>Path</label>
+          <select id="svc-path">${pathOpts}</select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Demand (Gbps)</label>
+          <input id="svc-gbps" type="number" placeholder="e.g. 2400" min="100" max="50000" />
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-primary" onclick="doAllocate()">Allocate</button>
+        <button class="btn" onclick="doAllocateWalkthrough()">Step-by-step walkthrough</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Preview</div>
+      <div id="alloc-preview">
+        <div class="empty" style="padding:20px">
+          <div>Select a path to see modulation preview</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="alloc-result" style="display:none"></div>
+  <div class="panel" id="walkthrough-panel" style="display:none"></div>
+
+  <script>
+    document.getElementById('svc-path').addEventListener('change', updatePreview);
+    document.getElementById('svc-gbps').addEventListener('input', updatePreview);
+    updatePreview();
+
+    function updatePreview() {
+      const pathName = document.getElementById('svc-path').value;
+      const gbps = parseInt(document.getElementById('svc-gbps').value) || 0;
+      const pathDef = ${JSON.stringify(SRLG_PATHS)}.find(p => p.name === pathName);
+      if (!pathDef) return;
+      const mod = ${JSON.stringify(MODULATION_TABLE)}.find(m => pathDef.km <= m.max_km && m.rate_gbps === Math.max(...${JSON.stringify(MODULATION_TABLE)}.filter(x => pathDef.km <= x.max_km).map(x => x.rate_gbps)));
+      if (!mod) return;
+      const channels = gbps > 0 ? Math.ceil(gbps / mod.rate_gbps) : '—';
+      const cap = gbps > 0 ? channels * mod.rate_gbps : '—';
+      const usedC = ${JSON.stringify(Object.fromEntries(SRLG_PATHS.map(p => [p.name, getUsed(p.name,'C').length])))}[pathName] || 0;
+      document.getElementById('alloc-preview').innerHTML =
+        '<table class="tbl"><tbody>' +
+        '<tr><td style="color:var(--muted)">Distance</td><td>' + pathDef.km + ' km</td></tr>' +
+        '<tr><td style="color:var(--muted)">Modulation</td><td>' + mod.name + '</td></tr>' +
+        '<tr><td style="color:var(--muted)">Rate per channel</td><td>' + mod.rate_gbps + ' G/ch</td></tr>' +
+        '<tr><td style="color:var(--muted)">OSNR required</td><td>>= ' + mod.osnr_db + ' dB</td></tr>' +
+        '<tr><td style="color:var(--muted)">Channels needed</td><td>' + channels + '</td></tr>' +
+        '<tr><td style="color:var(--muted)">Total capacity</td><td>' + (cap !== '—' ? cap.toLocaleString() + ' Gbps' : '—') + '</td></tr>' +
+        '<tr><td style="color:var(--muted)">C-Band used</td><td>' + usedC + '/97 slots</td></tr>' +
+        '</tbody></table>';
+    }
+  <\/script>`;
+}
+
+function doAllocate() {
+  const name  = document.getElementById('svc-name').value.trim();
+  const path  = document.getElementById('svc-path').value;
+  const gbps  = parseInt(document.getElementById('svc-gbps').value);
+  if (!name) { notify('Enter a service name', 'err'); return; }
+  if (!gbps || gbps < 1) { notify('Enter a valid demand in Gbps', 'err'); return; }
+
+  const res = allocate(name, path, gbps);
+  const panel = document.getElementById('alloc-result');
+  panel.style.display = 'block';
+
+  if (!res.ok) {
+    panel.innerHTML = `<div class="panel-title">Result</div>
+      <div class="explain" style="border-left-color:var(--red)">
+        <div class="explain-title" style="color:var(--red)">Allocation Failed</div>
+        ${res.msg}
+      </div>`;
+    notify(res.msg, 'err');
+    return;
+  }
+  const s = res.svc;
+  const overflow = res.overflow ? `<div class="explain" style="border-left-color:var(--yellow)">
+    <div class="explain-title" style="color:var(--yellow)">C-Band was full — overflowed to L-Band</div>
+    L-Band requires different amplifiers (Raman or L-EDFA) at every amplifier site on this path.
+    This is a hardware procurement project — plan 12–18 months ahead.
+  </div>` : '';
+  panel.innerHTML = `<div class="panel-title">Allocated Successfully</div>
+    ${overflow}
+    <table class="tbl"><tbody>
+      <tr><td style="color:var(--muted)">Service</td><td><b>${s.name}</b></td></tr>
+      <tr><td style="color:var(--muted)">Path</td><td>${s.path} (${s.km} km)</td></tr>
+      <tr><td style="color:var(--muted)">Modulation</td><td>${badgeMod(s.mod)} — ${s.rate} G/ch (OSNR >= ${s.osnr} dB)</td></tr>
+      <tr><td style="color:var(--muted)">Channels</td><td>${s.channels} ch × ${s.rate} G = ${(s.channels*s.rate).toLocaleString()} Gbps</td></tr>
+      <tr><td style="color:var(--muted)">Band</td><td><span class="badge badge-${s.band.toLowerCase()}">${s.band}-Band</span></td></tr>
+      <tr><td style="color:var(--muted)">Freq range</td><td>${s.freqStart.toFixed(3)} → ${s.freqEnd.toFixed(3)} THz</td></tr>
+    </tbody></table>`;
+  notify(`${name} allocated on ${s.band}-Band`, 'ok');
+}
+
+function doAllocateWalkthrough() {
+  const name  = document.getElementById('svc-name').value.trim();
+  const path  = document.getElementById('svc-path').value;
+  const gbps  = parseInt(document.getElementById('svc-gbps').value);
+  if (!name) { notify('Enter a service name', 'err'); return; }
+  if (!gbps) { notify('Enter a demand in Gbps', 'err'); return; }
+
+  const pathDef = SRLG_PATHS.find(p => p.name === path);
+  const mod = selectModulation(pathDef.km);
+  const channels = Math.ceil(gbps / mod.rate_gbps);
+  const slotsNeeded = channels * mod.slots;
+  const availC = getAvailable(path, 'C');
+  const band = availC.length >= slotsNeeded ? 'C' : 'L';
+  const avail = band === 'C' ? availC : getAvailable(path, 'L');
+  const slots = avail.slice(0, slotsNeeded);
+
+  const allMods = MODULATION_TABLE.map(m => {
+    const fits = pathDef.km <= m.max_km;
+    return `<tr style="opacity:${fits?1:.4}">
+      <td>${fits ? '<span style="color:var(--green)">✓</span>' : '<span style="color:var(--red)">✗</span>'}</td>
+      <td>${m.name}</td><td>${m.max_km} km</td><td>${m.rate_gbps} G/ch</td>
+      <td>${m.osnr_db} dB</td>
+      <td>${fits && m.name === mod.name ? '<span class="badge badge-ok">SELECTED</span>' : ''}</td>
+    </tr>`;
+  }).join('');
+
+  const usedC = getUsed(path, 'C').length;
+  const pctBefore = (usedC / 97 * 100).toFixed(0);
+  const pctAfter  = ((usedC + (band==='C'?slotsNeeded:0)) / 97 * 100).toFixed(0);
+
+  const panel = document.getElementById('walkthrough-panel');
+  panel.style.display = 'block';
+  panel.innerHTML = `
+  <div class="panel-title">Step-by-step Walkthrough — ${name}</div>
+
+  <div class="explain"><div class="explain-title">Step 1 — Validate path</div>
+    Path <code>${path}</code> found in topology database. Distance: <b>${pathDef.km} km</b>. SRLG: <code>${pathDef.srlg}</code>.
+    <br><br><span style="color:var(--muted)">IP analogy: like a RIB lookup before forwarding a packet.</span>
+  </div>
+
+  <div class="explain"><div class="explain-title">Step 2 — Select modulation format</div>
+    Scanning all formats for ${pathDef.km} km — picking the highest rate that fits:
+    <table class="tbl" style="margin-top:10px">
+      <thead><tr><th></th><th>Format</th><th>Max km</th><th>Rate/ch</th><th>OSNR req</th><th></th></tr></thead>
+      <tbody>${allMods}</tbody>
+    </table>
+    <br>Winner: <b>${mod.name}</b> → ${mod.rate_gbps} G/ch (needs OSNR ≥ ${mod.osnr_db} dB)
+    <br><br><span style="color:var(--muted)">IP analogy: distance forces a lower "link speed" — physics, not config.</span>
+  </div>
+
+  <div class="explain"><div class="explain-title">Step 3 — Calculate channels needed</div>
+    ceil(${gbps} Gbps ÷ ${mod.rate_gbps} G/ch) = <b>${channels} channels</b><br>
+    ${mod.slots > 1 ? `DP-64QAM uses ${mod.slots} slots/ch → ${slotsNeeded} total slots needed` : `1 slot per channel → ${slotsNeeded} slots needed`}<br>
+    Total capacity: ${channels} × ${mod.rate_gbps} G = <b>${(channels*mod.rate_gbps).toLocaleString()} Gbps</b>
+    <br><br><span style="color:var(--muted)">IP analogy: ceil(hosts ÷ /28 capacity) — always round up.</span>
+  </div>
+
+  <div class="explain"><div class="explain-title">Step 4 — Check spectrum availability</div>
+    C-Band free slots: <b>${availC.length}</b> / 97 &nbsp;|&nbsp; Need: <b>${slotsNeeded}</b> slots<br>
+    <div style="margin:8px 0">
+      <div style="height:16px;background:var(--bg3);border-radius:3px;overflow:hidden;position:relative;border:1px solid var(--border)">
+        <div style="width:${pctBefore}%;height:100%;background:linear-gradient(90deg,var(--c-band),#0090cc)"></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px">Before: ${usedC}/97 slots used (${pctBefore}%)</div>
+    </div>
+    ${band === 'L' ? `<span style="color:var(--yellow)">⚠ C-Band insufficient → overflowing to L-Band (hardware upgrade required!)</span><br>L-Band free: ${avail.length}/97` : `<span style="color:var(--green)">✓ C-Band has ${availC.length} free slots — sufficient</span>`}
+    <br><br><span style="color:var(--muted)">IP analogy: checking DHCP pool for free leases before assigning.</span>
+  </div>
+
+  <div class="explain"><div class="explain-title">Step 5 — Assign slots (First-Fit)</div>
+    Assigning lowest available ${band}-Band frequencies:<br>
+    <code>${slots.slice(0,5).map(f=>f.toFixed(3)).join(' THz, ')} THz${slots.length>5?` … +${slots.length-5} more`:''}</code><br>
+    Range: <b>${slots[0].toFixed(3)} → ${slots[slots.length-1].toFixed(3)} THz</b>
+    <br><br><span style="color:var(--muted)">IP analogy: DHCP sequential assignment — lowest free address first.</span>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-top:4px">
+    <button class="btn btn-primary" onclick="commitWalkthrough('${name}','${path}',${gbps})">Commit allocation</button>
+    <button class="btn" onclick="document.getElementById('walkthrough-panel').style.display='none'">Cancel</button>
+  </div>`;
+}
+
+function commitWalkthrough(name, path, gbps) {
+  const res = allocate(name, path, gbps);
+  const panel = document.getElementById('walkthrough-panel');
+  if (res.ok) {
+    const s = res.svc;
+    panel.innerHTML += `<div class="explain" style="border-left-color:var(--green);margin-top:12px">
+      <div class="explain-title" style="color:var(--green)">Step 6 — Committed ✓</div>
+      Service <b>${name}</b> allocated on <span class="badge badge-${s.band.toLowerCase()}">${s.band}-Band</span><br>
+      ${s.freqStart.toFixed(3)} → ${s.freqEnd.toFixed(3)} THz &nbsp;|&nbsp; ${s.channels} ch × ${s.rate} G = ${(s.channels*s.rate).toLocaleString()} Gbps
+    </div>`;
+    notify(`${name} committed`, 'ok');
+  } else {
+    notify(res.msg, 'err');
+  }
+}
+
+// ── FAULT ─────────────────────────────────────────────────────
+function renderFault() {
+  const srlgs = getAllSrlgs();
+  const chips = srlgs.map(s =>
+    `<div class="srlg-chip" id="chip-${s}" onclick="selectSrlg('${s}')">${s}</div>`
+  ).join('');
+
+  return `
+  <div class="panel">
+    <div class="panel-title">Select SRLG to Cut</div>
+    <div class="explain">
+      <div class="explain-title">What is an SRLG failure?</div>
+      An SRLG groups fibers sharing one physical conduit or cable. One physical event —
+      excavator, anchor, earthquake — cuts <b>all fibers in the group simultaneously</b>.<br>
+      Two rails in the same duct = same SRLG = still a single point of failure.
+      <div class="analogy" style="margin-top:10px">
+        <div class="analogy-title">IP analogy</div>
+        Multiple VLANs on one physical trunk — trunk is cut, all VLANs die at once.
+      </div>
+    </div>
+    <div class="srlg-check">${chips}</div>
+    <button class="btn btn-danger" style="margin-top:12px" onclick="runFault()">Cut selected SRLG</button>
+  </div>
+  <div id="fault-result"></div>
+  <script>
+    let selectedSrlg = null;
+    function selectSrlg(s) {
+      document.querySelectorAll('.srlg-chip').forEach(c => c.classList.remove('selected'));
+      selectedSrlg = s;
+      document.getElementById('chip-' + s).classList.add('selected');
+    }
+    function runFault() {
+      if (!selectedSrlg) { alert('Select an SRLG first'); return; }
+      window._runFault(selectedSrlg);
+    }
+  <\/script>`;
+}
+
+window._runFault = function(srlg) {
+  const affectedLinks = state.links.filter(l => l.srlgs.includes(srlg));
+  const affectedSvcs  = state.services.filter(s => s.srlg === srlg);
+  const totalLost = affectedSvcs.reduce((a,s) => a+s.gbps, 0);
+
+  // build result
+  let html = `<div class="panel"><div class="panel-title">Fault Analysis — ${srlg}</div>`;
+
+  // physical impact
+  html += `<h4 style="color:var(--red);margin-bottom:8px;font-size:12px;text-transform:uppercase;letter-spacing:.08em">Physical Impact</h4>
+    <table class="tbl" style="margin-bottom:16px">
+      <thead><tr><th>Fiber</th><th>Route</th><th>Name</th><th>Status</th></tr></thead>
+      <tbody>${affectedLinks.map(l => `<tr>
+        <td>${l.fid}</td><td>${l.src} ↔ ${l.dst}</td><td>${l.name}</td>
+        <td><span class="badge badge-err">DOWN</span></td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+
+  if (affectedSvcs.length === 0) {
+    html += `<div class="explain"><div class="explain-title">No services affected</div>No active services are provisioned on ${srlg}. Load a scenario first.</div>`;
+    html += '</div>';
+    document.getElementById('fault-result').innerHTML = html;
+    return;
+  }
+
+  // service impact
+  html += `<h4 style="color:var(--yellow);margin-bottom:8px;font-size:12px;text-transform:uppercase;letter-spacing:.08em">Service Impact — ${affectedSvcs.length} service(s) down — ${(totalLost/1000).toFixed(1)} Tbps at risk</h4>`;
+
+  let protected_ = 0;
+  const cutSrlgs = [srlg];
+
+  for (const svc of affectedSvcs) {
+    const result = dijkstra(svc.src, svc.dst, cutSrlgs);
+    const origMod = selectModulation(svc.km);
+    let svcHtml = `<div class="fault-svc">
+      <div class="fault-svc-name">${svc.name} <span class="badge badge-err">DOWN</span></div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">${svc.src} → ${svc.dst} | ${svc.gbps.toLocaleString()} Gbps | ${svc.mod}</div>`;
+
+    if (result) {
+      const newMod = selectModulation(result.km);
+      const degraded = newMod && newMod.rate_gbps < origMod.rate_gbps;
+      protected_ += svc.gbps;
+      const pathStr = result.path.map(n => SITES[n]?.name || n).join(' → ');
+
+      svcHtml += `<div style="margin-bottom:8px"><span class="badge badge-ok">RESTORED</span>${degraded ? ` <span class="badge badge-warn">MODULATION DEGRADED</span>` : ''}
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">New route: ${pathStr}</div>
+      </div>
+      <table class="ba-table">
+        <thead><tr><th></th><th class="before">Before (normal)</th><th class="after">After (backup)</th></tr></thead>
+        <tbody>
+          <tr><td>Distance</td><td>${svc.km} km</td><td>${result.km} km</td></tr>
+          <tr><td>Modulation</td><td>${origMod?.name||'?'}</td><td>${newMod?.name||'?'}</td></tr>
+          <tr><td>Rate per channel</td><td>${origMod?.rate_gbps||'?'} G/ch</td><td>${newMod?.rate_gbps||'?'} G/ch</td></tr>
+        </tbody>
+      </table>`;
+
+      if (degraded) {
+        const origCh = Math.ceil(svc.gbps / origMod.rate_gbps);
+        const newCh  = Math.ceil(svc.gbps / newMod.rate_gbps);
+        svcHtml += `<div class="explain" style="margin-top:8px;border-left-color:var(--yellow)">
+          <div class="explain-title" style="color:var(--yellow)">Modulation penalty</div>
+          ${origMod.rate_gbps}G/ch → ${newMod.rate_gbps}G/ch on the backup path.<br>
+          Need ${newCh - origCh} extra channels to restore ${(svc.gbps/1000).toFixed(1)} Tbps.
+          This requires restoration headroom in the spectrum.
+        </div>`;
+      }
+    } else {
+      svcHtml += `<div class="explain" style="border-left-color:var(--red)">
+        <div class="explain-title" style="color:var(--red)">Isolated — no alternative path</div>
+        ${svc.src} and ${svc.dst} have no remaining fiber path. Service stays down until fiber is repaired.
+      </div>`;
+    }
+
+    svcHtml += '</div>';
+    html += svcHtml;
+  }
+
+  const pct = totalLost > 0 ? (protected_/totalLost*100).toFixed(0) : 100;
+  html += `<div class="stat-card" style="margin-top:12px">
+    <div class="stat-label">Restoration result</div>
+    <div style="display:flex;gap:24px;margin-top:8px">
+      <div><div class="stat-label">Restored</div><div class="stat-value stat-g">${(protected_/1000).toFixed(1)}<span style="font-size:13px">T</span></div></div>
+      <div><div class="stat-label">Lost</div><div class="stat-value stat-r">${((totalLost-protected_)/1000).toFixed(1)}<span style="font-size:13px">T</span></div></div>
+      <div><div class="stat-label">Protection</div><div class="stat-value ${pct==100?'stat-g':pct>0?'stat-y':'stat-r'}">${pct}%</div></div>
+    </div>
+  </div>`;
+
+  html += '</div>';
+  document.getElementById('fault-result').innerHTML = html;
+};
+
+// ── DUAL ─────────────────────────────────────────────────────
+function renderDual() {
+  const srlgs = getAllSrlgs();
+  const chips1 = srlgs.map(s => `<div class="srlg-chip" id="chip1-${s}" onclick="selectDual(1,'${s}')">${s}</div>`).join('');
+  const chips2 = srlgs.map(s => `<div class="srlg-chip" id="chip2-${s}" onclick="selectDual(2,'${s}')">${s}</div>`).join('');
+
+  return `
+  <div class="panel">
+    <div class="panel-title">Select First SRLG</div>
+    <div class="srlg-check">${chips1}</div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Select Second SRLG</div>
+    <div class="srlg-check">${chips2}</div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Run Analysis</div>
+    <div class="explain">
+      <div class="explain-title">Why test dual failures?</div>
+      Subsea cable repairs take 3–4 weeks. A second failure during an active repair window is a real scenario.
+      This analysis identifies which site pairs become completely isolated — the result that drives
+      multi-hundred-million dollar new cable decisions.
+    </div>
+    <button class="btn btn-danger" style="margin-top:12px" onclick="runDual()">Run dual failure</button>
+  </div>
+  <div id="dual-result"></div>
+  <script>
+    let dual1 = null, dual2 = null;
+    function selectDual(n, s) {
+      if (n===1) {
+        document.querySelectorAll('[id^="chip1-"]').forEach(c=>c.classList.remove('selected'));
+        dual1=s; document.getElementById('chip1-'+s).classList.add('selected');
+      } else {
+        document.querySelectorAll('[id^="chip2-"]').forEach(c=>c.classList.remove('selected'));
+        dual2=s; document.getElementById('chip2-'+s).classList.add('selected');
+      }
+    }
+    function runDual() {
+      if (!dual1||!dual2) { alert('Select both SRLGs'); return; }
+      if (dual1===dual2)  { alert('Select two different SRLGs'); return; }
+      window._runDual(dual1, dual2);
+    }
+  <\/script>`;
+}
+
+window._runDual = function(srlg1, srlg2) {
+  const cutSrlgs = [srlg1, srlg2];
+  const nodes = Object.keys(SITES);
+  const isolated = [];
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i+1; j < nodes.length; j++) {
+      if (!isConnected(nodes[i], nodes[j], cutSrlgs)) {
+        isolated.push([nodes[i], nodes[j]]);
+      }
+    }
+  }
+
+  const surviving = state.links.filter(l => !l.srlgs.some(s => cutSrlgs.includes(s)));
+
+  let html = `<div class="panel"><div class="panel-title">Dual Failure — ${srlg1} + ${srlg2}</div>
+    <h4 style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">Surviving Links</h4>
+    <table class="tbl" style="margin-bottom:16px">
+      <thead><tr><th>Fiber</th><th>Route</th><th>Name</th><th>Status</th></tr></thead>
+      <tbody>${surviving.map(l=>`<tr>
+        <td>${l.fid}</td><td>${l.src} ↔ ${l.dst}</td><td>${l.name}</td>
+        <td><span class="badge badge-ok">UP</span></td>
+      </tr>`).join('')}${surviving.length===0?'<tr><td colspan="4" style="color:var(--red)">No links surviving — complete partition</td></tr>':''}</tbody>
+    </table>`;
+
+  if (isolated.length === 0) {
+    html += `<div class="explain" style="border-left-color:var(--green)">
+      <div class="explain-title" style="color:var(--green)">All sites remain reachable</div>
+      The network survives dual failure on ${srlg1} + ${srlg2}.
+      Topology has sufficient SRLG diversity to maintain full connectivity.
+    </div>`;
+  } else {
+    html += `<h4 style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--red);margin-bottom:8px">Isolated Site Pairs — ${isolated.length} pair(s)</h4>`;
+    isolated.forEach(([a,b]) => {
+      html += `<div class="fault-svc">
+        <span class="badge badge-err">ISOLATED</span>
+        <b style="margin-left:8px">${SITES[a].full}</b>
+        <span style="color:var(--muted);margin:0 8px">←— no path —→</span>
+        <b>${SITES[b].full}</b>
+      </div>`;
+    });
+    html += `<div class="explain" style="margin-top:12px;border-left-color:var(--red)">
+      <div class="explain-title" style="color:var(--red)">Recommendation</div>
+      Add a third cable on a completely different SRLG to eliminate this isolation scenario.
+      Use <b>Topology → Add Link</b> to model a new cable and re-run this analysis.
+    </div>`;
+  }
+
+  html += '</div>';
+  document.getElementById('dual-result').innerHTML = html;
+};
+
+// ── MODULATION TABLE ─────────────────────────────────────────
+function renderModTable() {
+  const uses = { "DP-64QAM":"Metro / DC interconnect","DP-16QAM":"Regional metro-long","DP-8QAM":"Long-haul continental","DP-QPSK":"Transoceanic","DP-BPSK":"Ultra-long subsea" };
+  const rows = MODULATION_TABLE.map(m => {
+    const barW = (m.rate_gbps / 800 * 100).toFixed(0);
+    return `<tr>
+      <td>${badgeMod(m.name)}</td>
+      <td>${m.max_km.toLocaleString()} km</td>
+      <td><div class="mod-bar" style="width:80px"><div class="mod-bar-fill" style="width:${barW}%"></div></div><span style="margin-left:6px">${m.rate_gbps} G/ch</span></td>
+      <td>≥ ${m.osnr_db} dB</td>
+      <td>${m.bits} bits/sym</td>
+      <td style="color:var(--muted)">${uses[m.name]}</td>
+    </tr>`;
+  }).join('');
+
+  const examples = [
+    [80, "DC interconnect"], [240, "DC-A to POP-B (Altoona → NYC)"],
+    [600, "NYC → Charlotte"], [1200, "NYC → Dallas"],
+    [2500, "NYC → Dublin"], [5800, "TAT-14 (Altoona → London)"]
+  ];
+  const exRows = examples.map(([km, desc]) => {
+    const m = selectModulation(km);
+    const chPerTbps = m ? Math.ceil(1000 / m.rate_gbps) : '—';
+    return `<tr>
+      <td style="color:var(--muted)">${desc}</td>
+      <td>${km.toLocaleString()} km</td>
+      <td>${m ? badgeMod(m.name) : '—'}</td>
+      <td>${m ? m.rate_gbps + ' G/ch' : '—'}</td>
+      <td><b>${chPerTbps}</b> ch/Tbps</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="panel">
+    <div class="panel-title">Modulation Formats</div>
+    <div class="explain">
+      <div class="explain-title">Why modulation depends on distance</div>
+      Every EDFA amplifier adds noise. Longer path = more amps = more noise = lower OSNR.
+      Lower OSNR forces lower modulation = fewer bits per symbol = lower Gbps per channel.
+      This is physics — not a vendor choice.
+    </div>
+    <table class="tbl" style="margin-top:12px">
+      <thead><tr><th>Format</th><th>Max Distance</th><th>Rate</th><th>OSNR req</th><th>Bits/sym</th><th>Use case</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Spectrum Cost by Distance — Channels needed per Tbps</div>
+    <table class="tbl">
+      <thead><tr><th>Route example</th><th>Distance</th><th>Modulation</th><th>Rate</th><th>ch per Tbps</th></tr></thead>
+      <tbody>${exRows}</tbody>
+    </table>
+    <div class="explain" style="margin-top:12px">
+      <div class="explain-title">The physics tax</div>
+      Metro link (80 km, DP-64QAM): <b>2 channels per Tbps</b><br>
+      Transatlantic (5800 km, DP-BPSK): <b>10 channels per Tbps</b><br><br>
+      The transatlantic path uses 5× more spectrum per Tbps. This is why intercontinental links
+      fill up faster even when traffic volumes are similar.
+    </div>
+  </div>`;
+}
+
+// ── GLOSSARY ─────────────────────────────────────────────────
+function renderGlossary() {
+  const cards = Object.entries(GLOSSARY).map(([term, g]) => `
+    <div class="glossary-card">
+      <div class="glossary-term">${term}</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${g.short}</div>
+      <div class="glossary-def">${g.def}</div>
+      ${g.analogy ? `<div class="analogy" style="margin-top:8px"><div class="analogy-title">IP analogy</div>${g.analogy}</div>` : ''}
+    </div>`).join('');
+  return `<div class="glossary-grid">${cards}</div>`;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+showPage('dashboard');
+</script>
+</body>
+</html>
