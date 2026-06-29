@@ -478,7 +478,7 @@
   <nav class="sidebar">
     <div class="logo">
       <div class="logo-title">Optical Sim</div>
-      <div class="logo-sub">Optical WAN · v3</div>
+      <div class="logo-sub">Meta WAN · v3</div>
     </div>
 
     <div class="nav-section">Overview</div>
@@ -951,50 +951,6 @@ function renderDashboard() {
 
 // ── TOPOLOGY ─────────────────────────────────────────────────
 function renderTopology() {
-  const nodeColors = { DC: 'var(--c-band)', POP: 'var(--l-band)' };
-
-  // Draw SVG
-  let edges = '';
-  const drawn = new Set();
-  for (const lnk of state.links) {
-    const key = [lnk.src,lnk.dst].sort().join('-');
-    if (drawn.has(key)) { drawn.add(key+'2'); continue; }
-    drawn.add(key);
-    const s = SITES[lnk.src], d = SITES[lnk.dst];
-    const isSubsea = lnk.name.includes('TAT') || lnk.name.includes('MAREA') || lnk.name.includes('Baltic');
-    edges += `<line x1="${s.x}" y1="${s.y}" x2="${d.x}" y2="${d.y}"
-      stroke="${isSubsea ? 'var(--l-band)' : 'var(--border)'}"
-      stroke-width="${isSubsea ? 1.5 : 2}"
-      stroke-dasharray="${isSubsea ? '6,4' : 'none'}"
-      opacity="0.7"/>
-    <text x="${(s.x+d.x)/2}" y="${(s.y+d.y)/2 - 5}" fill="var(--muted)" font-size="9" text-anchor="middle"
-      font-family="monospace">${lnk.km >= 1000 ? (lnk.km/1000).toFixed(1)+'k' : lnk.km}km</text>`;
-  }
-
-  let nodes = '';
-  for (const [id, s] of Object.entries(SITES)) {
-    const col = s.type === 'DC' ? 'var(--c-band)' : 'var(--l-band)';
-    nodes += `
-    <circle cx="${s.x}" cy="${s.y}" r="20" fill="var(--bg2)" stroke="${col}" stroke-width="2"/>
-    <text x="${s.x}" y="${s.y+4}" fill="${col}" font-size="9" text-anchor="middle" font-weight="700" font-family="monospace">${s.name}</text>
-    <text x="${s.x}" y="${s.y+30}" fill="var(--muted)" font-size="9" text-anchor="middle">${s.full.split('(')[1]?.replace(')','') || ''}</text>`;
-  }
-
-  const legend = `
-    <line x1="10" y1="300" x2="40" y2="300" stroke="var(--border)" stroke-width="2"/>
-    <text x="46" y="304" fill="var(--muted)" font-size="10">Terrestrial</text>
-    <line x1="10" y1="316" x2="40" y2="316" stroke="var(--l-band)" stroke-width="1.5" stroke-dasharray="6,4"/>
-    <text x="46" y="320" fill="var(--muted)" font-size="10">Submarine</text>
-    <circle cx="22" cy="332" r="6" fill="var(--bg2)" stroke="var(--c-band)" stroke-width="2"/>
-    <text x="34" y="336" fill="var(--muted)" font-size="10">DC</text>
-    <circle cx="22" cy="348" r="6" fill="var(--bg2)" stroke="var(--l-band)" stroke-width="2"/>
-    <text x="34" y="352" fill="var(--muted)" font-size="10">PoP</text>`;
-
-  const svg = `<svg class="topo-svg" viewBox="0 0 760 360" xmlns="http://www.w3.org/2000/svg">
-    ${edges}${nodes}${legend}
-  </svg>`;
-
-  // Link table
   const rows = state.links.map(l =>
     `<tr>
       <td>${l.fid}</td>
@@ -1006,9 +962,12 @@ function renderTopology() {
     </tr>`).join('');
 
   return `
-  <div class="panel">
-    <div class="panel-title">Network Map</div>
-    ${svg}
+  <div class="panel" style="padding:0;overflow:hidden">
+    <div style="padding:14px 20px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+      <div class="panel-title" style="margin:0">Network Map</div>
+      <span style="font-size:11px;color:var(--muted)">Drag nodes to reposition · topology is read-only</span>
+    </div>
+    <canvas id="topo-canvas" style="width:100%;height:520px;display:block;cursor:grab"></canvas>
   </div>
   <div class="panel">
     <div class="panel-title">Optical Links</div>
@@ -1016,7 +975,284 @@ function renderTopology() {
       <thead><tr><th>Fiber</th><th>Route</th><th>Distance</th><th>SRLG</th><th>Name</th><th>Modulation</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-  </div>`;
+  </div>
+  <script>
+  (function() {
+    const canvas = document.getElementById('topo-canvas');
+    const ctx    = canvas.getContext('2d');
+
+    // ── node positions (mutable for drag, topology immutable) ──
+    const pos = {
+      'ROADM-A': { x: 220, y: 300 },
+      'ROADM-B': { x: 480, y: 160 },
+      'ROADM-C': { x: 480, y: 420 },
+      'ROADM-D': { x: 820, y: 160 },
+      'ROADM-E': { x: 980, y: 60  },
+    };
+
+    const NODE_R   = 30;
+    const FONT_MON = '"JetBrains Mono","Fira Code",monospace';
+
+    // colour palette mirrors CSS vars
+    const C = {
+      bg:     '#0a0e14',
+      bg2:    '#111720',
+      bg3:    '#1a2233',
+      border: '#1e2d45',
+      cband:  '#00c8ff',
+      lband:  '#a259ff',
+      green:  '#00e676',
+      yellow: '#ffd740',
+      muted:  '#6c7a96',
+      text:   '#cdd6f4',
+    };
+
+    // ── HiDPI ──────────────────────────────────────────────────
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr  = window.devicePixelRatio || 1;
+      canvas.width  = rect.width  * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      draw();
+    }
+
+    // ── DRAW ───────────────────────────────────────────────────
+    function draw() {
+      const W = canvas.getBoundingClientRect().width;
+      const H = canvas.getBoundingClientRect().height;
+      ctx.clearRect(0, 0, W, H);
+
+      // background
+      ctx.fillStyle = C.bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // grid dots (subtle)
+      ctx.fillStyle = 'rgba(30,45,69,0.5)';
+      for (let x = 20; x < W; x += 40)
+        for (let y = 20; y < H; y += 40)
+          ctx.fillRect(x-1, y-1, 2, 2);
+
+      // ── edges ─────────────────────────────────────────────
+      const drawnPairs = new Set();
+      const LINKS = ${JSON.stringify(OPTICAL_LINKS)};
+
+      for (const lnk of LINKS) {
+        const key = [lnk.src, lnk.dst].sort().join('|');
+        const isDup = drawnPairs.has(key);
+        drawnPairs.add(key);
+
+        const s = pos[lnk.src], d = pos[lnk.dst];
+        const isSubsea = lnk.name.includes('TAT') || lnk.name.includes('MAREA') || lnk.name.includes('Baltic');
+
+        // offset duplicate links slightly
+        let ox = 0, oy = 0;
+        if (isDup) {
+          const dx = d.x - s.x, dy = d.y - s.y;
+          const len = Math.sqrt(dx*dx + dy*dy) || 1;
+          ox = (-dy / len) * 10;
+          oy = ( dx / len) * 10;
+        }
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(s.x + ox, s.y + oy);
+        ctx.lineTo(d.x + ox, d.y + oy);
+        ctx.strokeStyle = isSubsea ? C.lband : C.border;
+        ctx.lineWidth   = isSubsea ? 2 : 2.5;
+        if (isSubsea) ctx.setLineDash([8, 5]);
+        else          ctx.setLineDash([]);
+        ctx.globalAlpha = 0.8;
+        ctx.stroke();
+        ctx.restore();
+
+        // distance label at midpoint
+        const mx = (s.x + d.x) / 2 + ox;
+        const my = (s.y + d.y) / 2 + oy;
+        const label = lnk.km >= 1000 ? (lnk.km/1000).toFixed(1)+'k km' : lnk.km+' km';
+        ctx.save();
+        ctx.font = '10px ' + FONT_MON;
+        ctx.fillStyle = C.muted;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // small pill background
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(10,14,20,0.75)';
+        ctx.fillRect(mx - tw/2 - 4, my - 8, tw + 8, 16);
+        ctx.fillStyle = C.muted;
+        ctx.fillText(label, mx, my);
+        ctx.restore();
+      }
+
+      // ── nodes ─────────────────────────────────────────────
+      const SITES_DATA = ${JSON.stringify(SITES)};
+      for (const [id, site] of Object.entries(SITES_DATA)) {
+        const p   = pos[id];
+        const col = site.type === 'DC' ? C.cband : C.lband;
+        const isDragging = (drag && drag.id === id);
+
+        // glow
+        if (isDragging) {
+          const grd = ctx.createRadialGradient(p.x, p.y, NODE_R, p.x, p.y, NODE_R * 2.5);
+          grd.addColorStop(0, col + '44');
+          grd.addColorStop(1, 'transparent');
+          ctx.fillStyle = grd;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, NODE_R * 2.5, 0, Math.PI*2);
+          ctx.fill();
+        }
+
+        // outer ring
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, NODE_R + 4, 0, Math.PI*2);
+        ctx.strokeStyle = col + (isDragging ? 'ff' : '44');
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // filled circle
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, NODE_R, 0, Math.PI*2);
+        ctx.fillStyle = C.bg2;
+        ctx.fill();
+        ctx.strokeStyle = col;
+        ctx.lineWidth = isDragging ? 3 : 2;
+        ctx.stroke();
+
+        // short name inside
+        ctx.font = 'bold 11px ' + FONT_MON;
+        ctx.fillStyle = col;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(site.name, p.x, p.y);
+
+        // full location below
+        const loc = site.full.match(/\\((.+)\\)/)?.[1] || '';
+        ctx.font = '10px ' + FONT_MON;
+        ctx.fillStyle = C.muted;
+        ctx.fillText(loc, p.x, p.y + NODE_R + 14);
+
+        // type badge
+        const badge = site.type;
+        ctx.font = 'bold 9px ' + FONT_MON;
+        const bw = ctx.measureText(badge).width + 8;
+        ctx.fillStyle = col + '22';
+        roundRect(ctx, p.x - bw/2, p.y - NODE_R - 18, bw, 14, 3);
+        ctx.fill();
+        ctx.fillStyle = col;
+        ctx.fillText(badge, p.x, p.y - NODE_R - 11);
+      }
+
+      // ── legend ─────────────────────────────────────────────
+      const lx = 16, ly = H - 90;
+      ctx.save();
+      ctx.fillStyle = 'rgba(10,14,20,0.8)';
+      roundRect(ctx, lx - 8, ly - 8, 160, 80, 6);
+      ctx.fill();
+
+      ctx.font = '10px ' + FONT_MON;
+      ctx.textBaseline = 'middle';
+
+      ctx.setLineDash([]);
+      ctx.strokeStyle = C.border; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(lx, ly+8); ctx.lineTo(lx+30, ly+8); ctx.stroke();
+      ctx.fillStyle = C.muted; ctx.fillText('Terrestrial', lx+36, ly+8);
+
+      ctx.setLineDash([6,4]);
+      ctx.strokeStyle = C.lband; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(lx, ly+26); ctx.lineTo(lx+30, ly+26); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = C.muted; ctx.fillText('Submarine', lx+36, ly+26);
+
+      ctx.beginPath(); ctx.arc(lx+10, ly+44, 6, 0, Math.PI*2);
+      ctx.fillStyle = C.bg2; ctx.fill();
+      ctx.strokeStyle = C.cband; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = C.muted; ctx.fillText('DC node', lx+22, ly+44);
+
+      ctx.beginPath(); ctx.arc(lx+10, ly+62, 6, 0, Math.PI*2);
+      ctx.fillStyle = C.bg2; ctx.fill();
+      ctx.strokeStyle = C.lband; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = C.muted; ctx.fillText('PoP node', lx+22, ly+62);
+
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    // ── DRAG ───────────────────────────────────────────────────
+    let drag = null;
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const t = e.touches ? e.touches[0] : e;
+      return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+    }
+
+    function hitNode(px, py) {
+      for (const [id, p] of Object.entries(pos)) {
+        const dx = px - p.x, dy = py - p.y;
+        if (Math.sqrt(dx*dx + dy*dy) <= NODE_R + 6) return id;
+      }
+      return null;
+    }
+
+    canvas.addEventListener('mousedown', e => {
+      const { x, y } = getPos(e);
+      const hit = hitNode(x, y);
+      if (hit) {
+        drag = { id: hit, ox: x - pos[hit].x, oy: y - pos[hit].y };
+        canvas.style.cursor = 'grabbing';
+        e.preventDefault();
+      }
+    });
+
+    canvas.addEventListener('mousemove', e => {
+      const { x, y } = getPos(e);
+      if (drag) {
+        const rect = canvas.getBoundingClientRect();
+        pos[drag.id].x = Math.max(NODE_R+10, Math.min(rect.width  - NODE_R-10, x - drag.ox));
+        pos[drag.id].y = Math.max(NODE_R+25, Math.min(rect.height - NODE_R-25, y - drag.oy));
+        draw();
+      } else {
+        canvas.style.cursor = hitNode(x, y) ? 'grab' : 'default';
+      }
+    });
+
+    canvas.addEventListener('mouseup',   () => { drag = null; canvas.style.cursor = 'default'; });
+    canvas.addEventListener('mouseleave',() => { drag = null; canvas.style.cursor = 'default'; });
+
+    // touch support
+    canvas.addEventListener('touchstart', e => {
+      const { x, y } = getPos(e);
+      const hit = hitNode(x, y);
+      if (hit) { drag = { id: hit, ox: x - pos[hit].x, oy: y - pos[hit].y }; e.preventDefault(); }
+    }, { passive: false });
+    canvas.addEventListener('touchmove', e => {
+      if (!drag) return;
+      const { x, y } = getPos(e);
+      const rect = canvas.getBoundingClientRect();
+      pos[drag.id].x = Math.max(NODE_R+10, Math.min(rect.width  - NODE_R-10, x - drag.ox));
+      pos[drag.id].y = Math.max(NODE_R+25, Math.min(rect.height - NODE_R-25, y - drag.oy));
+      draw(); e.preventDefault();
+    }, { passive: false });
+    canvas.addEventListener('touchend', () => { drag = null; });
+
+    // ── init ───────────────────────────────────────────────────
+    window.addEventListener('resize', resize);
+    resize();
+  })();
+  <\/script>`;
 }
 
 // ── SPECTRUM ─────────────────────────────────────────────────
